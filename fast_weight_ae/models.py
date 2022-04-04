@@ -13,8 +13,7 @@ def get_source_sink(x, edge):
     sources, sinks = [], []
     for i in range(x.shape[0]):
         b_idx = edge[1,:] == i
-        source_idx = edge[0, b_idx]
-        sink_idx = edge[1, b_idx]
+        source_idx, sink_idx = edge[:, b_idx].unbind(0)
         sources.append(source_idx)
         sinks.append(sink_idx)
 
