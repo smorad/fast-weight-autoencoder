@@ -1,5 +1,6 @@
 import torch
 import torch_geometric
+from torch_scatter import scatter_mean
 
 
 def get_neighbors(x, edge):
@@ -41,12 +42,14 @@ class GNNEncoder(torch.nn.Module):
             torch.nn.Linear(hidden_size, latent_size)
         )
         self.keys = torch.nn.Linear(input_size, latent_size)
+        self.weight = torch.nn.Linear(input_size, 1)
 
     def forward(self, x, edge, **gnn_kwargs):
         z = self.gnn(x, edge, **gnn_kwargs)
         z = self.mlp(z)
         keys = self.keys(x)
-        return z, keys
+        weights = self.weight(x)
+        return z, keys, weights
 
 
 class DotDecoder(torch.nn.Module):
@@ -56,15 +59,25 @@ class DotDecoder(torch.nn.Module):
         super().__init__()
         self.map = torch.nn.Linear(latent_size, input_size)
 
-    def forward(self, z, keys, source_sink):
+    def forward(self, z, keys, weights, source_sink):
         sources, sinks = source_sink
         dot = keys[sources] * z[sinks]
-        out = self.map(dot)
-        return out
+        mapped = self.map(dot)
+        # Multiply by sigmoidal weights
+        # allowing us to assign lower weights
+        # where we are uncertain
+        weighted = weights[sources].sigmoid() * mapped 
+
+        # Reduce by taking the mean over common neighbors
+        # e.g. if node 1 is neighbors of both node 3 and node 4,
+        # vertex 1 will take the mean of 3 and 4
+        reduced = scatter_mean(weighted, sources, dim=0)
+        return reduced
 
     def loss(self, x, y_hat, source_sink):
-        sources, sinks = source_sink
-        error = x[sources] - y_hat
+        #sources, sinks = source_sink
+        #error = x[sources] - y_hat
+        error = x - y_hat
         mse = (error ** 2).mean()
         return mse
 
