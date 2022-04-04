@@ -42,8 +42,8 @@ class GNNEncoder(torch.nn.Module):
         )
         self.keys = torch.nn.Linear(input_size, latent_size)
 
-    def forward(self, x, edge):
-        z = self.gnn(x, edge)
+    def forward(self, x, edge, **gnn_kwargs):
+        z = self.gnn(x, edge, **gnn_kwargs)
         z = self.mlp(z)
         keys = self.keys(x)
         return z, keys
