@@ -16,6 +16,8 @@ for epoch in range(int(1e5)):
     x = torch.cat([
         torch.randn(batch_size, input_size // duplication_ratio)
     ] * duplication_ratio, dim=-1)
+    perm = torch.randperm(input_size)
+    x = x[:,perm]
     #edge = torch_geometric.nn.radius_graph(x, r=2)
     edge = torch_geometric.nn.knn_graph(x, k=3)
     # Self loops required for decode scatter

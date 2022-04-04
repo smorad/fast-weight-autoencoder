@@ -55,14 +55,21 @@ class GNNEncoder(torch.nn.Module):
 class DotDecoder(torch.nn.Module):
     """Given a latent embedding z and and a set of keys,
     reconstruct the input by querying z with the keys."""
-    def __init__(self, input_size, hidden_size, latent_size):
+    def __init__(self, input_size, hidden_size, latent_size, use_key_value=False):
         super().__init__()
-        self.map = torch.nn.Linear(latent_size, input_size)
+        self.use_key_value = use_key_value
+        if use_key_value:
+            self.map = torch.nn.Linear(latent_size, input_size),
+        else:
+            self.map = torch.nn.Linear(2 * latent_size, input_size)
 
-    def forward(self, z, keys, source_sink, weights=None):
+    def forward(self, z, keys, source_sink, weights=None, use_key_value=False):
         sources, sinks = source_sink
-        dot = keys[sources] * z[sinks]
-        mapped = self.map(dot)
+        if self.use_key_value:
+            dot = keys[sources] * z[sinks]
+            mapped = self.map(dot)
+        else:
+            mapped = self.map(torch.cat([keys[sources], z[sinks]], dim=-1))
         # Multiply outputs by sigmoidal weights
         # allowing us to assign lower weights
         # where we are uncertain
