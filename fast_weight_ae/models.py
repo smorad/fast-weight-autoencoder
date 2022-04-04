@@ -69,6 +69,7 @@ class DotDecoder(torch.nn.Module):
         # TODO: should we use scatter sum instead?
         if weights is not None:
             importance = weights[sources].sigmoid().reshape(-1)
+            mapped = mapped * importance.reshape(-1, 1)
             soft_degree = scatter_add(importance, sources)
 
         # Reduce by taking the mean over common neighbors
