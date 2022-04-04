@@ -1,6 +1,6 @@
 import torch
 import torch_geometric
-from torch_scatter import scatter_mean
+from torch_scatter import scatter_mean, scatter_add, scatter_softmax
 
 
 def get_neighbors(x, edge):
@@ -59,19 +59,29 @@ class DotDecoder(torch.nn.Module):
         super().__init__()
         self.map = torch.nn.Linear(latent_size, input_size)
 
-    def forward(self, z, keys, weights, source_sink):
+    def forward(self, z, keys, source_sink, weights=None):
         sources, sinks = source_sink
         dot = keys[sources] * z[sinks]
         mapped = self.map(dot)
-        # Multiply by sigmoidal weights
+        # Multiply outputs by sigmoidal weights
         # allowing us to assign lower weights
         # where we are uncertain
-        weighted = weights[sources].sigmoid() * mapped 
+        # TODO: should we use scatter sum instead?
+        if weights is not None:
+            importance = weights[sources].sigmoid().reshape(-1)
+            soft_degree = scatter_add(importance, sources)
 
         # Reduce by taking the mean over common neighbors
-        # e.g. if node 1 is neighbors of both node 3 and node 4,
+        # e.g. if node 1 is a neighbor of root nodes 3 and  4,
         # vertex 1 will take the mean of 3 and 4
-        reduced = scatter_mean(weighted, sources, dim=0)
+        # 
+        # TODO: means are in different frames,
+        # this will not work with relative poses
+        if weights is not None:
+            reduced = scatter_add(mapped, sources, dim=0) / soft_degree.reshape(-1, 1)
+        else:
+            reduced = scatter_mean(mapped, sources, dim=0)
+
         return reduced
 
     def loss(self, x, y_hat, source_sink):

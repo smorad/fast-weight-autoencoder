@@ -22,7 +22,7 @@ for epoch in range(int(1e5)):
     edge, _ = torch_geometric.utils.add_remaining_self_loops(edge)
     z, keys, weights = encoder(x, edge)
     source_sink = get_source_sink(x, edge)
-    y = decoder(z, keys, weights, source_sink)
+    y = decoder(z, keys, source_sink, weights)
     loss = decoder.loss(x, y, source_sink)
     print(loss)
     opt.zero_grad()
